@@ -8,7 +8,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
+
+	"github.com/walles/env"
 )
 
 const (
@@ -48,8 +51,12 @@ type client struct {
 
 // NewClient returns a new OpenAI GPT-3 API client. An apiKey is required to use the client.
 func NewClient(endpoint string, apiKey string, deploymentName string, options ...ClientOption) (Client, error) {
+	proxyUrl, _ := url.Parse(env.GetOr("https_proxy", env.String, ""))
 	httpClient := &http.Client{
 		Timeout: defaultTimeoutSeconds * time.Second,
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(proxyUrl),
+		},
 	}
 
 	c := &client{
@@ -70,7 +77,7 @@ func NewClient(endpoint string, apiKey string, deploymentName string, options ..
 
 func (c *client) Completion(ctx context.Context, request CompletionRequest) (*CompletionResponse, error) {
 	request.Stream = false
-	req, err := c.newRequest(ctx, "POST", fmt.Sprintf("/openai/deployments/%s/completions", c.deploymentName), request)
+	req, err := c.newRequest(ctx, "POST", "/completions", request)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +100,7 @@ var (
 
 func (c *client) CompletionStream(ctx context.Context, request CompletionRequest, onData func(*CompletionResponse)) error {
 	request.Stream = true
-	req, err := c.newRequest(ctx, "POST", fmt.Sprintf("/openai/deployments/%s/completions", c.deploymentName), request)
+	req, err := c.newRequest(ctx, "POST", "/completions", request)
 	if err != nil {
 		return err
 	}
